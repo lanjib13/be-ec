@@ -1,0 +1,377 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- Enum ----------  
+enum SosmedKind {
+  link
+  post
+
+  @@map("sosmed_kind")
+}
+
+enum SosmedPlatform {
+  youtube
+  linkedin
+  tiktok
+  instagram
+
+  @@map("sosmed_platform")
+}
+
+enum PeriodeStatus {
+  akan_dibuka
+  dibuka
+  ditutup
+  pengumuman
+
+  @@map("periode_status")
+}
+
+enum StatusSeleksi {
+  terkirim
+  seleksi_berkas
+  wawancara
+  diterima
+  tidak_lolos
+
+  @@map("status_seleksi")
+}
+
+enum StatusStok {
+  tersedia
+  habis
+
+  @@map("status_stok")
+}
+
+enum KlikChannel {
+  whatsapp
+  shopee
+
+  @@map("klik_channel")
+}
+
+enum BeritaStatus {
+  draft
+  scheduled
+  published
+
+  @@map("berita_status")
+}
+
+enum AchievementTipe {
+  prestasi
+  karya
+
+  @@map("achievement_tipe")
+}
+
+enum KomentarTarget {
+  news
+  program
+  achievement
+
+  @@map("komentar_target")
+}
+
+enum KomentarStatus {
+  pending
+  approved
+  hidden
+
+  @@map("komentar_status")
+}
+
+enum PartnershipStatus {
+  baru
+  dihubungi
+  selesai
+
+  @@map("partnership_status")
+}
+
+// ---------- Profil organisasi ----------  
+model AboutOrganisasi {
+  id                 Int         @id @default(1)
+  tagline            String      @db.VarChar(255)
+  visi               String
+  deskripsi_singkat  String
+  wa_katalog_default String?     @db.VarChar(25)
+  updated_at         DateTime?   @updatedAt @db.Timestamptz(6)
+  misi               AboutMisi[]
+
+  @@map("about_organisasi")
+}
+
+model AboutMisi {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  about_id   Int
+  teks_misi  String
+  gambar_url String?         @db.VarChar(500)
+  urutan     Int
+  about      AboutOrganisasi @relation(fields: [about_id], references: [id], onDelete: Cascade)
+
+  @@map("about_misi")
+}
+
+model AboutOutput {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  judul      String  @db.VarChar(150)
+  deskripsi  String
+  gambar_url String? @db.VarChar(500)
+  tahun      Int
+  urutan     Int
+
+  @@map("about_output")
+}
+
+model Statistik {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label                  String   @db.VarChar(100)
+  nilai_angka            Decimal  @db.Decimal(20, 2)
+  persentase_pertumbuhan Decimal? @db.Decimal(7, 2)
+  prefix                 String?  @db.VarChar(20)
+  suffix                 String?  @db.VarChar(20)
+  ikon                   String?  @db.VarChar(50)
+  keterangan_bulan       String   @db.VarChar(100)
+  urutan                 Int
+
+  @@map("statistik")
+}
+
+model Sosmed {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind          SosmedKind
+  platform      SosmedPlatform
+  url           String         @db.VarChar(500)
+  urutan        Int            @default(0)
+  status_tampil Boolean        @default(true)
+
+  @@map("sosmed")
+}
+
+// ---------- Event ----------  
+model Event {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  judul           String           @db.VarChar(200)
+  slug            String           @unique @db.VarChar(200)
+  deskripsi       String
+  foto_cover      String?          @db.VarChar(500)
+  tanggal_mulai   DateTime         @db.Timestamptz(6)
+  tanggal_selesai DateTime         @db.Timestamptz(6)
+  batas_daftar    DateTime         @db.Timestamptz(6)
+  kuota           Int
+  status_aktif    Boolean          @default(true)
+  pendaftar       PendaftarEvent[]
+
+  @@index([status_aktif, tanggal_mulai])
+  @@map("events")
+}
+
+model PendaftarEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id    String   @db.Uuid
+  nama        String   @db.VarChar(150)
+  institusi   String   @db.VarChar(150)
+  email       String   @db.VarChar(150)
+  no_whatsapp String   @db.VarChar(25)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  event       Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, email])
+  @@map("pendaftar_event")
+}
+
+// ---------- Rekrutmen ----------  
+model RekrutmenPeriode {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  judul           String            @db.VarChar(150)
+  deskripsi       String
+  tanggal_buka    DateTime          @db.Timestamptz(6)
+  tanggal_tutup   DateTime          @db.Timestamptz(6)
+  status          PeriodeStatus     @default(akan_dibuka)
+  syarat_umum     Json
+  tahapan_seleksi Json
+  kontak_panitia  Json
+  posisi          RekrutmenPosisi[]
+  pelamar         PelamarAnggota[]
+
+  @@map("rekrutmen_periode")
+}
+
+model RekrutmenPosisi {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  periode_id        String           @db.Uuid
+  nama_posisi       String           @db.VarChar(100)
+  deskripsi_tugas   String
+  syarat_khusus     String
+  kuota             Int?
+  status_buka       Boolean          @default(true)
+  periode           RekrutmenPeriode @relation(fields: [periode_id], references: [id], onDelete: Cascade)
+  pelamar_pilihan_1 PelamarAnggota[] @relation("PilihanSatu")
+  pelamar_pilihan_2 PelamarAnggota[] @relation("PilihanDua")
+
+  @@map("rekrutmen_posisi")
+}
+
+model PelamarAnggota {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kode_pendaftaran    String           @unique @db.VarChar(20)
+  periode_id          String           @db.Uuid
+  posisi_pilihan_1_id String           @db.Uuid
+  posisi_pilihan_2_id String?          @db.Uuid
+  nama_lengkap        String           @db.VarChar(150)
+  institusi           String           @db.VarChar(150)
+  jurusan_prodi       String           @db.VarChar(100)
+  angkatan_semester   String           @db.VarChar(50)
+  email               String           @db.VarChar(150)
+  no_whatsapp         String           @db.VarChar(25)
+  alasan_bergabung    String           @db.VarChar(1000)
+  link_cv_portofolio  String?          @db.VarChar(500)
+  status_seleksi      StatusSeleksi    @default(terkirim)
+  catatan_admin       String?
+  setuju_privasi      Boolean
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  periode             RekrutmenPeriode @relation(fields: [periode_id], references: [id])
+  posisi_1            RekrutmenPosisi  @relation("PilihanSatu", fields: [posisi_pilihan_1_id], references: [id])
+  posisi_2            RekrutmenPosisi? @relation("PilihanDua", fields: [posisi_pilihan_2_id], references: [id])
+
+  @@unique([periode_id, email])
+  @@index([periode_id, status_seleksi])
+  @@map("pelamar_anggota")
+}
+
+// ---------- Katalog produk ----------  
+model Produk {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nama          String       @db.VarChar(150)
+  slug          String       @unique @db.VarChar(150)
+  deskripsi     String
+  harga         Decimal?     @db.Decimal(14, 0)
+  kategori      String       @db.VarChar(100)
+  foto_cover    String?      @db.VarChar(500)
+  galeri        Json?
+  link_shopee   String?      @db.VarChar(500)
+  no_whatsapp   String?      @db.VarChar(25)
+  status_stok   StatusStok   @default(tersedia)
+  unggulan      Boolean      @default(false)
+  status_tampil Boolean      @default(true)
+  urutan        Int          @default(0)
+  created_at    DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime     @updatedAt @db.Timestamptz(6)
+  klik          ProdukKlik[]
+
+  @@index([status_tampil, unggulan, urutan])
+  @@map("produk")
+}
+
+model ProdukKlik {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produk_id  String      @db.Uuid
+  channel    KlikChannel
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  produk     Produk      @relation(fields: [produk_id], references: [id], onDelete: Cascade)
+
+  @@index([produk_id, channel, created_at])
+  @@map("produk_klik")
+}
+
+// ---------- Publikasi dan interaksi ----------  
+model Berita {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  penulis_id    String?      @db.Uuid // merujuk auth.users.id (tanpa relasi Prisma)  
+  judul         String       @db.VarChar(255)
+  slug          String       @unique @db.VarChar(255)
+  konten        String
+  gambar_sampul String?      @db.VarChar(500)
+  kategori      String       @db.VarChar(100)
+  status        BeritaStatus @default(draft)
+  jadwal_terbit DateTime?    @db.Timestamptz(6)
+  published_at  DateTime?    @db.Timestamptz(6)
+
+  @@index([status, published_at])
+  @@map("berita")
+}
+
+model Program {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nama         String  @db.VarChar(150)
+  slug         String  @unique @db.VarChar(150)
+  deskripsi    String
+  kategori     String  @db.VarChar(100)
+  foto_cover   String? @db.VarChar(500)
+  galeri       Json?
+  status_aktif Boolean @default(true)
+
+  @@map("program")
+}
+
+model Achievement {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipe           AchievementTipe
+  judul          String          @db.VarChar(200)
+  deskripsi      String
+  tahun          Int
+  gambar         String?         @db.VarChar(500)
+  link_eksternal String?         @db.VarChar(500)
+  nama_anggota   String          @db.VarChar(150)
+
+  @@map("achievements")
+}
+
+model Komentar {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_tipe    KomentarTarget
+  target_id      String         @db.Uuid // polimorfik, tanpa relasi Prisma  
+  approved_by    String?        @db.Uuid // merujuk auth.users.id (tanpa relasi Prisma)  
+  nama_pengirim  String         @db.VarChar(100)
+  email_pengirim String?        @db.VarChar(150)
+  isi_komentar   String         @db.VarChar(1000)
+  status         KomentarStatus @default(pending)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([target_tipe, target_id, status])
+  @@map("komentar")
+}
+
+model RatingHero {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  skor           Int      @db.SmallInt // 1–5, dijaga Zod dan CHECK di migrasi  
+  perangkat_hash String   @unique @db.VarChar(64)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("rating_hero")
+}
+
+// ---------- Kemitraan ----------  
+model Mitra {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nama_mitra    String  @db.VarChar(150)
+  logo_url      String  @db.VarChar(500)
+  website_url   String? @db.VarChar(500)
+  tier          String? @db.VarChar(50)
+  status_tampil Boolean @default(true)
+
+  @@map("mitra")
+}
+
+model PengajuanPartnership {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nama            String            @db.VarChar(150)
+  institusi       String            @db.VarChar(150)
+  email           String            @db.VarChar(150)
+  no_whatsapp     String            @db.VarChar(25)
+  jenis_kerjasama String            @db.VarChar(100)
+  pesan           String
+  status          PartnershipStatus @default(baru)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@map("pengajuan_partnership")
+}
